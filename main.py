@@ -1,5 +1,5 @@
 
-from os import path,  scandir, makedirs
+from os import path,  scandir, makedirs, remove
 from sys import exit
 from shutil import copy
 import win32com.client as win32
@@ -120,6 +120,16 @@ class FATPunchlistExtractor(object):
         # there will be some gimmicky code due to the fact that the punchlists use 4 rows in per row.
         fat_full_path = self.fat_path + "\\" + true_path.split("\\")[-1]
         #fat_full_path = r"C:\Users\sotero\Documents\Misc" + "\\" + true_path.split("\\")[-1]
+        while path.exists(fat_full_path):
+            try:
+                remove(fat_full_path)
+                print("Old file Deleted")
+            except PermissionError:
+                print("Original File is open, please close it to continue.")
+                old_file_stop = input("Press Enter to continue, or type 'quit' then enter to exit:")
+                if old_file_stop in ["quit", "'quit'"]:
+                    quit()
+
         copy(true_path, fat_full_path)
         xl = win32.gencache.EnsureDispatch('Excel.Application')
         xl.Visible = True
@@ -144,7 +154,7 @@ class FATPunchlistExtractor(object):
                 ws.Rows(c_row).EntireRow.Delete()
                 c_row -= 1
             else:
-                ws.Cells(c_row, 1).Value = row_increment
+                #ws.Cells(c_row, 1).Value = row_increment
                 row_increment += 1
             c_row += 1
 
