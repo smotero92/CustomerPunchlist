@@ -3,6 +3,7 @@ from os import path,  scandir, makedirs, remove
 from sys import exit
 from shutil import copy
 import win32com.client as win32
+import pywintypes
 import subprocess
 import time
 #python -m PyInstaller -F -c main.py
@@ -124,7 +125,7 @@ class FATPunchlistExtractor(object):
             try:
                 remove(fat_full_path)
                 print("Old file Deleted")
-            except PermissionError:
+            except Exception:
                 print("Original File is open, please close it to continue.")
                 old_file_stop = input("Press Enter to continue, or type 'quit' then enter to exit:")
                 if old_file_stop in ["quit", "'quit'"]:
@@ -135,7 +136,15 @@ class FATPunchlistExtractor(object):
         xl.Visible = True
         xl.DisplayAlerts = False
         #xl.AutoRecover.Enabled = False
-        wb = xl.Workbooks.Open(fat_full_path)
+        wb = None
+        while wb is None:
+            try:
+                wb = xl.Workbooks.Open(fat_full_path)
+            except pywintypes.com_error:
+                print("Original File is open, please close it to continue.")
+                old_file_stop = input("Press Enter to continue, or type 'quit' then enter to exit:")
+                if old_file_stop in ["quit", "'quit'"]:
+                    quit()
 
         for ws in wb.Worksheets:
             if ws.Name != "Testing":
@@ -163,6 +172,62 @@ class FATPunchlistExtractor(object):
         print("Finished, check %s for customer Punchlist" % fat_full_path)
         subprocess.call('explorer ' + fat_full_path, shell=True)
         #self.folder_find(fat_full_path)
+
+    def reverse_copy(self):  #will use 2 inputs, cus pl folder and tri pl folder
+        # this function will open both the customer punchlist and the triangle punchlist
+        # and copy the rows from the customer pl back into the triangle pl
+        # first we need to find the customer punchlist and the triangle pl
+        # assign them to separate variables
+        # the loop through the customer punchlist
+        # every new row, copy the data from the row, up until the final column, which should be checked by scanning row 16
+        # loop through the rows of the triangle pl and paste the corresponding row into it.
+        folder_cust = r""
+        folder_tri = r""
+        path_cust = r"C:\Users\sotero\python\FATPunchlistExtractor\124551_HANOVER FOODS_cust.xlsx"
+        path_tri = r"C:\Users\sotero\python\FATPunchlistExtractor\124551_HANOVER FOODS_tri.xlsx"
+
+        if path.exists(path_cust) and path.exists(path_tri):
+            xl = win32.gencache.EnsureDispatch('Excel.Application')
+            xl.Visible = True
+            xl.DisplayAlerts = True
+            # xl.AutoRecover.Enabled = False
+            wb_tri = None
+            wb_cust = None
+            while wb_tri is None or wb_cust is None:
+                try:
+                    wb_tri = xl.Workbooks.Open(path_tri)
+                    wb_cust = xl.Workbooks.Open(path_cust)
+                except pywintypes.com_error:
+                    print("Original File(s) is open, please close it to continue.")
+                    old_file_stop = input("Press Enter to continue, or type 'quit' then enter to exit:")
+                    if old_file_stop in ["quit", "'quit'"]:
+                        quit()
+            row_tri = 17
+            row_cust = 17
+            end_col_row = 16
+            end_col =1
+            ws_tri = wb_tri.Worksheets("Testing")
+            ws_cust = wb_cust.Worksheets("Testing")
+            row_num = 0
+            while ws_cust.Cells(end_col_row, end_col).Value is not None:
+                end_col += 1
+
+            while (ws_cust.Cells(row_cust, 1).Value is not None or
+                   ws_cust.Cells(row_cust + 1, 1).Value is not None or
+                   ws_cust.Cells(row_cust + 2, 1).Value is not None or
+                   ws_cust.Cells(row_cust + 3, 1).Value is not None):
+                # print(ws.Cells(c_row, 1).Interior.Color)
+                if ws_cust.Cells(row_cust, 1).Value != row_num:
+                    row_num = ws_cust.Cells(row_cust, 1).Value
+                    while ws_tri.Cells(row_tri, 1).Value != row_num:
+                        row_tri += 1
+                    #ws_cust.Range(ws_cust.Cells(row_cust, 1), ws_tri.Cells(row_tri,end_col)).Copy(ws_tri.Range(ws_tri.Cells(row_tri, 1), ws_tri.Cells(row_tri, end_col)))
+                    #this line keeps crashing. might need to copy, then paste/
+                    ws_cust.Range(ws_cust.Cells(row_cust, 1), ws_tri.Cells(row_tri,end_col)).Copy((ws_tri.Cells(row_tri, 1)))
+
+                row_cust += 1
+
+
 
     def folder_find(self, starting_path):
         # first split the path up to find the customer name
@@ -231,6 +296,7 @@ class FATPunchlistExtractor(object):
 
 if __name__ == "__main__":
     rs = FATPunchlistExtractor()
+
     while True:
         try:
             rs.main()
